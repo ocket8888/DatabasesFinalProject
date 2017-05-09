@@ -11,9 +11,23 @@ parser.add_argument("other_question", default=None, type=str, nargs='?', help="A
 
 args = parser.parse_args()
 
+#list all the questions from the survey along with their descriptions and column names
+#could probably be one hideous, nested list comprehension, but this is hard enough to read as it is
+#and any halfway decent python compiler will make that optimization for us.
 if args.list:
 	descriptions = open("qdescripts").read().strip().split("\n")
 	colnames = [line.split("\",\"")[1] for line in open("columns.csv").read().strip().split("\n")]
 	output = [descriptions[i]+", keyword=\""+colnames[i] for i in range(0,len(descriptions))]
 	print('\n'.join(output))
 	exit()
+
+#if we're not listing the questionnaire, we need all three positional arguments.
+elif not args.question or not args.answer or not args.other_question:
+	print("You must specify a question that students answered a certain way and another question to break down based on that! (use `-h` or `--help` for usage)")
+	exit(1)
+
+
+#at this point we can assume we have a question, an answer and another question to break down
+#so execution can continue normally.
+
+
