@@ -106,11 +106,16 @@ def shortDescription(description):
 	return shorter
 
 from matplotlib import pyplot as plt
-labels = tuple(sorted(formattedResults))
-sizes = [formattedResults[label] for label in labels]
-explode = [0 for i in range(0, len(labels))]
 
+### set up inputs to matplotlib from the data ###
+labels = tuple(sorted(formattedResults)) #pie slice labels
+sizes = [formattedResults[label] for label in labels] #just the counts for each label (in the same order!)
+explode = [0 for i in range(0, len(labels))] #sets the explode amount for each slice
+
+#set `explode` properly if specified on the command-line
 if args.explode:
+	#needs to be in a try/catch block, because this will throw an IndexError if nobody gave that answer
+	#(even if it's a valid answer)
 	try:
 		explode[labels.index(args.explode[0])] += 0.1
 	except IndexError as e:
@@ -121,6 +126,7 @@ if args.explode:
 
 fig1, ax1 = plt.subplots()
 
+#Sets the chart title, if only because it looks weird without one
 if args.single:
 	fig1.suptitle("Breakdown of Students' Answers to\n'"+shortDescription(args.single[0])+"'", fontsize=24, fontweight='bold')
 elif args.compare:
@@ -129,9 +135,15 @@ elif args.compare:
 		"'\nwith '"+args.compare[1]+"'",\
 		fontsize=20,\
 		fontweight='bold')
+
+#This sets up the plot, and returns `<?>, <text based on data>, <text generated automatically>`
 patches, texts, autotexts = ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.2f%%', shadow=True, startangle=45)
+
+#all the pie chart text is way too tiny by default
 for i in range(0,len(texts)):
 	texts[i].set_fontsize(15)
 	autotexts[i].set_fontsize(15)
+
+#These last two lines set the aspect ratio (to 'equal' which guarantees that the pie chart is a circle) and shows the plot window, respectively.
 ax1.axis('equal')
 plt.show()
