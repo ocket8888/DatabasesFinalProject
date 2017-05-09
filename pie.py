@@ -44,7 +44,9 @@ from sys import argv, stderr
 
 ### This is all stuff we'd need whether we're listing or not ###
 colnames = [line.strip().split('\",\"')[1] for line in open("columns.csv").read().strip().split('\n')]
-colnames = [colnames[i][0:len(colnames[i])-1] for i in range(1,len(colnames))] #Boy I wish there was a way I knew of to slice to the 'end-1' of an anonymous string#build a map of column names to column numbers
+colnames = [colnames[i][0:len(colnames[i])-1] for i in range(1,len(colnames))] #Boy I wish there was a way I knew of to slice to the 'end-1' of an anonymous string
+
+#build a map of column names to column numbers
 columns = dict()
 for i in range(0, len(colnames)):
 	columns[colnames[i]] = i
