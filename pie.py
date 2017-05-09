@@ -18,7 +18,8 @@ parser = ap.ArgumentParser(\
 		Exit codes:\
 			0 indicates normal exit,\
 			1 indicates manual command-line argument validation failed, and a message will be printed saying why,\
-			2 is reserved for errors encountered by the `argparse.ArgumentParser.parse_args()` function, so errors should be verbose")
+			2 is reserved for errors encountered by the `argparse.ArgumentParser.parse_args()` function, so errors should be verbose\
+			3 indicates that a library is missing, and will display a message advising which library is missing and possible ways to install it")
 
 #These lines each add a command-line argument, as well as handle some meta stuff for them.
 parser.add_argument('-l', '--list', action='store_true', help="Lists the available questions and the possible respective answer ranges, and exit.")
@@ -105,7 +106,11 @@ def shortDescription(description):
 	shorter = shorter.replace("1-2-3-4-5", "-")
 	return shorter
 
-from matplotlib import pyplot as plt
+try:
+	from matplotlib import pyplot as plt
+except ImportError as e:
+	print("You don't appear to have matplotlib installed. Try `sudo apt install python3-matplotlib` or `sudo -H pip3 install matplotlib` and then run this program again.", file=stderr)
+	exit(3)
 
 ### set up inputs to matplotlib from the data ###
 labels = tuple(sorted(formattedResults)) #pie slice labels
