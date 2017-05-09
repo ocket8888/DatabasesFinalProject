@@ -30,4 +30,25 @@ elif not args.question or not args.answer or not args.other_question:
 #at this point we can assume we have a question, an answer and another question to break down
 #so execution can continue normally.
 
+###################################################
+###		GET THE DATA (NEEDS PSQL SUPPORT)		###
+###################################################
 
+colnames = [line.strip().split('\",\"')[1] for line in open("columns.csv").read().strip().split('\n')]
+colnames = [colnames[i][0:len(colnames[i])-1] for i in range(0,len(colnames))] #Boy I wish there was a way I knew of to slice to the 'end-1' of an anonymous string
+
+#build a map of column names to column numbers
+columns = dict()
+for i in range(0, len(colnames)):
+	columns[colnames[i]] = i
+
+dummyDatabase = [line.strip().split(',') for line in open("responses.csv").read().strip().split('\n')[1:]]
+
+dataToAnalyze = [entry[columns[args.other_question]] for entry in dummyDatabase if entry[columns[args.question]] is args.answer]
+
+###################################################
+### 			END DATA RETRIEVAL				###
+###################################################
+
+from collections import Counter
+print(dict(Counter(dataToAnalyze)))
