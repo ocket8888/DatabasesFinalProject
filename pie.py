@@ -2,14 +2,36 @@
 
 import argparse as ap
 
-#Argument Parsing
-parser = ap.ArgumentParser(description='Compares student lives from a british survey via pie chart.', usage="%(prog)s [-l | -h | <question> <answer> <other question>]", epilog="Each entry output using `-l` or `--list` ends with 'keyword=\"<keyword>\"', which specifies the keyword to use when this entry is the <question> or <other_question> argument. <answer> arguments should be given exactly; use quotes to enclose strings that contain spaces. Same thing applies to the way-too-many keywords that have spaces in them due to poor life choices by the data maintainers.")
+###################################################
+###				ARGUMENT PARSING				###
+###################################################
+
+#Just describes the program and how to use it.
+parser = ap.ArgumentParser(\
+	description="Compares student lives from a british survey via pie chart. Also outputs line-separated numerical data to stdout in the format:\
+		<answer>\\t<number of this answer>\\t<percent of total constituted by this answer>%\
+		where '\\t' indicates a tab character.",\
+	usage="%(prog)s [-l | -h | <question> <answer> <other question>]",\
+	epilog="Each entry output using `-l` or `--list` ends with 'keyword=\"<keyword>\"', which specifies the keyword to use when this entry is the\
+		<question> or <other_question> argument. <answer> arguments should be given exactly; use quotes to enclose strings that contain spaces.\
+		Same thing applies to the way-too-many keywords that have spaces in them due to poor life choices by the data maintainers.\
+		Exit codes:\
+			0 indicates normal exit,\
+			1 indicates manual command-line argument validation failed, and a message will be printed saying why,\
+			2 is reserved for errors encountered by the `argparse.ArgumentParser.parse_args()`, so errors should be verbose")
+
+#These lines each add a command-line argument, as well as handle some meta stuff for them.
 parser.add_argument('-l', '--list', action='store_true', help="Lists the available questions and the possible respective answer ranges, and exit.")
 parser.add_argument("question", default=None, type=str, nargs='?', help="The question to see related info for.")
 parser.add_argument("answer", default=None, type=str, nargs='?', help="The answer to the question from <question>.")
 parser.add_argument("other_question", default=None, type=str, nargs='?', help="A question to show a breakdown for, given that students also answered <question> with <answer>")
 
-args = parser.parse_args()
+args = parser.parse_args() #runs the parser on `ARGV`
+
+
+#	LIST OPTION and ARGUMENT NUMBER CHECKING	#
+
+from sys import argv, stderr
 
 #list all the questions from the survey along with their descriptions and column names
 #could probably be one hideous, nested list comprehension, but this is hard enough to read as it is
@@ -23,7 +45,12 @@ if args.list:
 
 #if we're not listing the questionnaire, we need all three positional arguments.
 elif not args.question or not args.answer or not args.other_question:
-	print("You must specify a question that students answered a certain way and another question to break down based on that! (use `-h` or `--help` for usage)")
+	print("You must specify a question that students answered a certain way and another question to break down based on that! (use `-h` or `--help` for usage)", stderr)
+	exit(1)
+
+from sys import argv
+if len(argv) is not 4:
+	print("Expected exactly three arguments, "+repr(len(argv))+" given. (use `-h` or `--help` for usage)", stderr)
 	exit(1)
 
 
@@ -50,5 +77,9 @@ dataToAnalyze = [entry[columns[args.other_question]] for entry in dummyDatabase 
 ### 			END DATA RETRIEVAL				###
 ###################################################
 
-from collections import Counter
-print(dict(Counter(dataToAnalyze)))
+
+#prints the result to stdout in case weird pie charts get made and stuff gets hard to read
+from collections import Counter as count
+formattedResults = count([datum if datum else "Didn't Answer" for datum in dataToAnalyze])
+total = len(dataToAnalyze)
+print("\n".join([key+":\t"+str(formattedResults[key])+"\t"+str(formattedResults[key]*100.0/total)+"%" for key in sorted(formattedResults)]))
