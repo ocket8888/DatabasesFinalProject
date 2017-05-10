@@ -8,18 +8,20 @@ import argparse as ap
 
 #Just describes the program and how to use it.
 parser = ap.ArgumentParser(\
-	description="Compares student lives from a british survey via pie chart. Also outputs line-separated numerical data to stdout in the format:\
-		<answer>\\t<number of this answer>\\t<percent of total constituted by this answer>%\
-		where '\\t' indicates a tab character.",\
+	description="Compares student lives from a british survey via pie chart. Also outputs line-separated numerical data to stdout in the format:"
+		"<answer>\\t<number of this answer>\\t<percent of total constituted by this answer>%"
+		"where '\\t' indicates a tab character.",\
 	usage="%(prog)s [-l | -h | -s <question> | -c <question> <answer> <other question>] [-x]",\
-	epilog="Each entry output using `-l` or `--list` ends with 'keyword=\"<keyword>\"', which specifies the keyword to use when this entry is the\
-		<question> or <other question> argument. <answer> arguments should be given exactly; use quotes to enclose strings that contain spaces.\
-		Same thing applies to the way-too-many keywords that have spaces in them due to poor life choices by the data maintainers.\
-		Exit codes:\
-			0 indicates normal exit,\
-			1 indicates manual command-line argument validation failed, and a message will be printed saying why,\
-			2 is reserved for errors encountered by the `argparse.ArgumentParser.parse_args()` function, so errors should be verbose\
-			3 indicates that a library is missing, and will display a message advising which library is missing and possible ways to install it")
+	epilog="Each entry output using `-l` or `--list` ends with 'keyword=\"<keyword>\"', which specifies the keyword to use when this entry is the"
+		"<question> or <other question> argument. <answer> arguments should be given exactly; use quotes to enclose strings that contain spaces."
+		"Same thing applies to the way-too-many keywords that have spaces in them due to poor life choices by the data maintainers."
+		"Exit codes:"
+			"0 indicates normal exit,"
+			"1 indicates manual command-line argument validation failed, and a message will be printed saying why,"
+			"2 is reserved for errors encountered by the `argparse.ArgumentParser.parse_args()` function, so errors should be verbose,"
+			"3 indicates that a library is missing, and will display a message advising which library is missing and possible ways to install it,"
+			"4 means that the directory is missing something (probably `list.psql`),"
+			"5 is used for any and all database connection-related errors")
 
 #These lines each add a command-line argument, as well as handle some meta stuff for them.
 parser.add_argument('-l', '--list', action='store_true', help="Lists the available questions and the possible respective answer ranges, and exit.")
@@ -40,24 +42,41 @@ args = parser.parse_args() #runs the parser on `ARGV`
 
 
 from sys import stderr
-
-
-### This is all stuff we'd need whether we're listing or not ###
-colnames = [line.strip().split('\",\"')[1] for line in open("columns.csv").read().strip().split('\n')]
-colnames = [colnames[i][0:len(colnames[i])-1] for i in range(1,len(colnames))] #Boy I wish there was a way I knew of to slice to the 'end-1' of an anonymous string
-
-#build a map of column names to column numbers
-columns = dict()
-for i in range(0, len(colnames)):
-	columns[colnames[i]] = i
-del colnames
-descriptions = open("qdescripts").read().strip().split("\n")
+try:
+	from psycopg2 import connect
+except ImportError as e:
+	print("You don't appear to have psycopg2 installed. Try `sudo apt install python3-psycopg2` or `sudo -H pip3 install psycopg2` and then run this program again.", file=stderr)
+	exit(3)
 
 #list all the questions from the survey along with their descriptions and column names
 #could probably be one hideous, nested list comprehension, but this is hard enough to read as it is
 #and any halfway decent python compiler will make that optimization for us.
 if args.list:
-	output = [descriptions[columns[keyword]]+", keyword=\""+keyword+'"' for keyword in columns]
+	output = list()
+	try:
+		#open some resources
+		listSQL = open("list.psql")
+		#pls no hack
+		connection = connect(host="mprussak.bounceme.net",\
+                  dbname="final_project",\
+                  user="brennan",\
+                  password="403_password_brennan")
+		db = connection.cursor()
+
+		#get the output
+		db.execute(listSQL.read().strip())
+		output = [entry[0] for entry in db.fetchall()]
+
+	except Exception as e:
+		code=5
+		if type(e) is FileNotFoundError:
+			print("Your directory appears corrupted; try downloading again.", file=stderr)
+			code=4
+		else:
+			print("Something wicked happened when trying to read from the database", file=stderr)
+		print(e, file=stderr)
+		exit(code)
+
 	print('\n'.join(output))
 	exit()
 
@@ -75,14 +94,66 @@ elif not args.single and not args.compare:
 ###################################################
 ###				DATA RETRIEVAL					###
 ###################################################
-#TODO - Replace this with actual sql, which may affect formatting later.
-dummyDatabase = [[col.strip('"') for col in line.strip().split(',')] for line in open("responses.csv").read().strip().split('\n')[1:]]
+def shortDescription(description):
+	'''This just gets rid of extraneous information in question descriptions'''
+	shorter = description.replace(" (integer)","")
+	shorter = shorter.replace(" (categorical)","")
+	shorter = shorter.replace("1-2-3-4-5", "-")
+	return shorter
 
-if args.single:
-	dataToAnalyze = [entry[columns[args.single[0]]] for entry in dummyDatabase]
-elif args.compare:
-	dataToAnalyze = [entry[columns[args.compare[2]]] for entry in dummyDatabase if entry[columns[args.compare[0]]] == args.compare[1]]
 
+try:
+	#open resources
+	#pls no hack
+	connection = connect(host="mprussak.bounceme.net",\
+              dbname="final_project",\
+              user="brennan",\
+              password="403_password_brennan")
+	db = connection.cursor()
+
+	#Execute query on a single question
+	if args.single:
+		#description
+		db.execute(
+			"""SELECT description FROM columns WHERE name=%s;"""
+			(args.single[0],))
+		desc = "Breakdown of Students' Answers to\n'"+shortDescription(db.fetchone()[0])+"'"
+
+		#results
+		db.execute("SELECT %s FROM results;" % args.single[0])
+
+	#Execute query on a comparison of questions
+	elif args.compare:
+		print(args.compare)
+		#description
+		db.execute(
+			"""SELECT a.description AS q1, b.description AS q2
+				FROM columns AS a
+				INNER JOIN
+					(SELECT description FROM columns WHERE name=%s) AS b
+				ON a.name=%s;""",
+			(args.compare[2], args.compare[0]))
+		descriptions = db.fetchone()
+		desc = "Breakdown of Students' Answers to\n'"+shortDescription(descriptions[1])+\
+		"'\nwho also Answered\n'"+shortDescription(descriptions[0])+\
+		"'\nwith '"+args.compare[1]+"'"
+
+		#results
+		query = "SELECT %s FROM results WHERE %s" % (args.compare[2], args.compare[0])
+		db.execute(query+"=%s;", (args.compare[1]))
+
+	#fetch and format results
+	fetchedData = db.fetchall()
+	dataToAnalyze = [result[0] if result[0] else "Didn't Answer" for result in fetchedData]
+	print(dataToAnalyze)
+
+except Exception as e:
+	print("Something wicked happened when trying to read from the database", file=stderr)
+	print(e, file=stderr)
+	exit(5)
+finally:
+	db.close()
+	connection.close()
 
 
 ###################################################
@@ -92,20 +163,12 @@ elif args.compare:
 #				  OUTPUT ON STDOUT				  #
 
 from collections import Counter as count
-formattedResults = count([datum if datum else "Didn't Answer" for datum in dataToAnalyze])
+formattedResults = count(dataToAnalyze)
 total = len(dataToAnalyze)
 print("\n".join([key+"\t"+str(formattedResults[key])+"\t"+str(formattedResults[key]*100.0/total)+"%" for key in sorted(formattedResults)]))
 
 
 #				  PIE CHART OUTPUT				  #
-
-def shortDescription(description):
-	'''This just gets rid of extraneous information in question descriptions'''
-	shorter = descriptions[columns[description]]
-	shorter = shorter.replace(" (integer)","")
-	shorter = shorter.replace(" (categorical)","")
-	shorter = shorter.replace("1-2-3-4-5", "-")
-	return shorter
 
 try:
 	from matplotlib import pyplot as plt
@@ -133,14 +196,7 @@ if args.explode:
 fig1, ax1 = plt.subplots()
 
 #Sets the chart title, if only because it looks weird without one
-if args.single:
-	fig1.suptitle("Breakdown of Students' Answers to\n'"+shortDescription(args.single[0])+"'", fontsize=24, fontweight='bold')
-elif args.compare:
-	fig1.suptitle("Breakdown of Students' Answers to\n'"+shortDescription(args.compare[2])+\
-		"'\nwho also Answered\n'"+shortDescription(args.compare[0])+\
-		"'\nwith '"+args.compare[1]+"'",\
-		fontsize=20,\
-		fontweight='bold')
+fig1.suptitle(desc, fontsize=(24 if args.single else 20), fontweight='bold')
 
 #This sets up the plot, and returns `<?>, <text based on data>, <text generated automatically>`
 patches, texts, autotexts = ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.2f%%', shadow=True, startangle=45)
