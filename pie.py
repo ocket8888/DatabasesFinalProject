@@ -8,10 +8,9 @@ import argparse as ap
 
 #Just describes the program and how to use it.
 parser = ap.ArgumentParser(\
-	description="Compares student lives from a british survey via pie chart. Also outputs line-separated numerical data to stdout in the format:"
-		"<answer>\\t<number of this answer>\\t<percent of total constituted by this answer>%"
-		"where '\\t' indicates a tab character.",\
-	usage="%(prog)s [-l | -h | -s <question> | -c <question> <answer> <other question>] [-x]",\
+	description="Compares student lives from a Slavic survey via pie chart. Also outputs line-separated numerical data to stdout in the format: "
+		"<answer> <number of this answer> <percent of total constituted by this answer>",\
+	                   usage="%(prog)s [-l | -h | -f <question> [ -s <question> & -a <answer> | -r <lower_bound> <upper_bound>] [-x]",\
 	epilog="Each entry output using `-l` or `--list` ends with 'keyword=\"<keyword>\"', which specifies the keyword to use when this entry is the"
 		"<question> or <other question> argument. <answer> arguments should be given exactly; use quotes to enclose strings that contain spaces."
 		"Same thing applies to the way-too-many keywords that have spaces in them due to poor life choices by the data maintainers."
