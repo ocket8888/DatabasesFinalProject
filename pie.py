@@ -138,8 +138,9 @@ try:
 		"'\nwith '"+args.compare[1]+"'"
 
 		#results
+
 		query = "SELECT %s FROM results WHERE %s" % (args.compare[2], args.compare[0])
-		db.execute(query+"=%s;", (args.compare[1]))
+		db.execute(query+"=%s;", (args.compare[1],))#don't ask about the comma. just. don't.
 
 	#fetch and format results
 	fetchedData = db.fetchall()
