@@ -1,0 +1,1 @@
+SELECT (description || ',	keyword="' || name || '"') AS listing FROM columns;
