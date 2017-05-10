@@ -39,7 +39,7 @@ args = parser.parse_args() #runs the parser on `ARGV`
 #	LIST OPTION and ARGUMENT NUMBER CHECKING	#
 
 
-from sys import argv, stderr
+from sys import stderr
 
 
 ### This is all stuff we'd need whether we're listing or not ###
@@ -76,7 +76,6 @@ elif not args.single and not args.compare:
 ###				DATA RETRIEVAL					###
 ###################################################
 #TODO - Replace this with actual sql, which may affect formatting later.
-#Also, don't forget that the dumb data has quotes in it when it's already COMMA SEPARATED THERE'S NO NEED TO QUOTE A STRING WHEN THE END OF A COLUMN IS STRICTLY SPECIFIED BY COMMAS AND BY THE WAY WHY IS THE FORMAT OF COLUMNS.CSV SO MUCH WORSE THAN THE KAGGLE DESCRIPTION AND WHY DO YOU PUT SPECIAL CHARACTERS LIKE '/' AND ',' IN THE !!!SHORT!!! !!!NAMES!!! USED FOR !!!!!!!!!!!!!!1COLUMN NAUMANING!!!!!!!!!!1!!!1!!!!!!!!!!!11
 dummyDatabase = [[col.strip('"') for col in line.strip().split(',')] for line in open("responses.csv").read().strip().split('\n')[1:]]
 
 if args.single:

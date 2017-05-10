@@ -1,48 +1,110 @@
-#Script to import data from the data file (response.csv) to the database
-
-import pandas as ps
-from sqlalchemy import create_engine
-
-#connection string for database. will only work from the local machine anyway
-conn_str = 'postgresql://marek@localhost/final_project'
-
-#first file, with responses and short column names
-file1 = 'responses.csv'
-table1 = 'responses'
-
-#second file, with mappings from short cols to long
-file2 = 'columns.csv'
-table2 = 'column_mappings'
-
-#create engine for db connection
-engine = create_engine(conn_str)
-
-#read csv into a dataframe
-responses = ps.read_csv(file1)
-
-#strip commas and single quotes
-responses.columns = responses.columns.str.replace(',|\'', '')
-
-#convert every character to lowercase
-responses.columns = responses.columns.str.lower()
-
-#replace pseudo-whitespace with underscores
-responses.columns = responses.columns.str.replace(' |-|/', '_')
-
-#import the first file
-responses.to_sql(table1, engine, if_exists='replace')
+#!/usr/bin/env python3
 
 
-#read second csv into dataframe
-columns = ps.read_csv(file2)
+###################################################
+###				PRELIMINARY WORK				###
+###################################################
 
-#switch the column order. the file has original, short, we want short, original
-columns = columns[list(reversed(columns.columns.tolist()))]
+#		  PARSE RAW CSV FILES FOR DB DATA		  #
+from sys import stderr
 
-#apply the same replacements to the short names, so we can match them up
-columns.ix[:,0]= columns.ix[:,0].str.replace(',|\'', '')
-columns.ix[:,0] = columns.ix[:,0].str.lower()
-columns.ix[:,0] = columns.ix[:,0].str.replace(' |-|/', '_')
+#try to open the files for reading
+try:
+	responsesCSV = open("responses.csv")
+	qdescripts = open("qdescripts")
+	columnsCSV = open("columns.csv")
+except FileNotFoundError as e:
+	print("Your directory appears corrupt, try downloading again.",\
+          e, file=stderr)
+	exit(1)
 
-#import the second file
-columns.to_sql(table2, engine, if_exists='replace', index=False)
+
+def sanitize(badstring):
+	'''Fixes the horrible column-naming scheme the data maintainers had'''
+	return badstring.replace('"', '')\
+	                .replace(' ', '_')\
+	                .replace(',', '')\
+	                .replace('-', '')\
+	                .replace('/', '_')\
+	                .replace("'", '')
+
+#read and close files
+try:
+	responsesRaw = responsesCSV.read().strip().split('\n')
+	qdescriptsRaw= qdescripts.read().strip().split('\n')
+	columnMapRaw = columnsCSV.read().strip().split('\n')[1:]
+
+	columnNames = [sanitize(col) for col in responsesRaw.pop(0).split('","')]
+	results = [repr(tuple(x.strip('"') for x in row.split(',')))\
+	           for row in responsesRaw]
+	columnMap = {line[0].replace('"', ''): sanitize(line[1])\
+	             for line in\
+	                 [rawline.split('","') for rawline in columnMapRaw]}
+
+	#makes a list of tuples for the `columns` table, in the form: 
+	#(short name, description)
+	columns = list()
+	for line in qdescriptsRaw:
+		#this line's actual pretty neat; the `__repr__` of a python `tuple`
+		#happens to be formatted exactly properly for psql `VALUES` insertion
+		columns.append(repr((columnMap[line.split(':')[0]], line.replace("'", ''))))
+
+	#A little cleanup in case this gets memory-intesive
+	del columnMap
+	del responsesRaw
+	del qdescriptsRaw
+	del columnMapRaw
+
+except Exception as e:
+	print("Something wicked happened while reading the source files",\
+	      file=stderr)
+	print(e, file=stderr)
+	exit(1)
+finally:
+	responsesCSV.close()
+	qdescripts.close()
+	columnsCSV.close()
+
+
+
+###################################################
+#		  		  CREATE TABLES					  #
+###################################################
+import psycopg2 as psql
+
+#pls no hack
+connection = psql.connect(host="mprussak.bounceme.net",\
+                  dbname="final_project",\
+                  user="brennan",\
+                  password="403_password_brennan")
+db = connection.cursor()
+try:
+	#first, drop the tables if they exist to avoid collisions
+	db.execute("DROP TABLE IF EXISTS columns;")
+	db.execute("DROP TABLE IF EXISTS results;")
+	connection.commit()
+
+	#Now, (re)create the schema
+	db.execute("CREATE TABLE columns ("
+	           "	name text PRIMARY KEY,"
+	           "	description text NOT NULL"
+	           ");")
+	db.execute("CREATE TABLE results ("+\
+	           "	id serial PRIMARY KEY,"+\
+	           " varchar(50), ".join(columnNames)+\
+	           " varchar(50));")
+	connection.commit()
+
+	#Now populate the schema with our data
+	db.execute("INSERT INTO columns (name, description) VALUES"+\
+	                ", ".join(columns)+';')
+	db.execute("INSERT INTO results ("+','.join(columnNames)+") VALUES"+\
+	                ", ".join(results)+';')
+	connection.commit()
+except Exception as e:
+	print("Something wicked happened when connecting to the database.",\
+	      e, file=stderr)
+	exit(1)
+finally:
+	db.close()
+	connection.close()
