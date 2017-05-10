@@ -25,11 +25,10 @@ parser = ap.ArgumentParser(\
 
 #These lines each add a command-line argument, as well as handle some meta stuff for them.
 parser.add_argument('-l', '--list', action='store_true', help="Lists the available questions and the possible respective answer ranges, and exit.")
-parser.add_argument("-c", "--compare", type=str, nargs=3, help="Compares the answers of students to a question based on a given answer for another question.\
-	Expects input in the format: '<question> <answer> <other question>', where <question> is the one with the given answer - specified by <answer> - and\
-	<other question> is the one to break down. Example: '-c Music 5 Dance' will display a pie chart of the answers to 'Dance, Disco, Funk: Don't enjoy at all - Enjoy very much'\
-	for students who answered 'I enjoy listening to music: Strongly disagree - Strongly agree' with '5' (which indicates 'Strongly agree').")
-parser.add_argument("-s", "--single", type=str, nargs=1, help="Shows a pie chart detailing the answers to a question.")
+parser.add_argument('-f', '--first', nargs=1, type=str, help="First question to graph. If --second is not specified, shows a pie chart detailing answers to first question")
+parser.add_argument('-s', '--second', nargs=1, type=str, help="Second question to graph (optional). Requires a value or range specified for first question")
+parser.add_argument('-a', '--answer', nargs=1, type=str, help="Singular answer to first question, for comparison with values of second")
+parser.add_argument('-r', '--arange', nargs=2, type=str, help="Two values to use as range of accepted answers for first question")
 parser.add_argument("-x", "--explode", nargs=1, type=str, help="Select an answer to explode. This will explode the pie slice (all assuming that at least one person gave this answer).\
 	Must be a valid answer to <question> (if using -s) or <other question> (if using -c).")
 
@@ -80,9 +79,17 @@ if args.list:
 	print('\n'.join(output))
 	exit()
 
-#if we're not listing the questionnaire, we need either `-s` or `-c`.
-elif not args.single and not args.compare:
-	print("You must specify something for me to do! (use `-h` or `--help` for usage)", file=stderr)
+#catch bad flag options, probably missed a bunch
+elif args.second and not (args.arange or args.answer or args.first):
+	print("invalid arguments (need a first question and answer or range)! (use `-h` or `--help` for usage)", file=stderr)
+	exit(1)
+
+elif not args.first:
+	print("invalid arguments! (use `-h` or `--help` for usage)", file=stderr)
+	exit(1)
+
+elif args.answer and args.arange:
+	print("can't have both an answer and range! (use `-h` or `--help` for usage)", file=stderr)
 	exit(1)
 
 
@@ -112,18 +119,20 @@ try:
 	db = connection.cursor()
 
 	#Execute query on a single question
-	if args.single:
+	if not args.second:
 		#description
 		db.execute(
-			"""SELECT description FROM columns WHERE name=%s;"""
-			(args.single[0],))
+			"""SELECT description FROM columns WHERE name=%s;""", 
+			(args.first[0],))
 		desc = "Breakdown of Students' Answers to\n'"+shortDescription(db.fetchone()[0])+"'"
-
+		
 		#results
-		db.execute("SELECT %s FROM results;" % args.single[0])
+		db.execute("SELECT %s FROM results;" % args.first[0])
 
+	#TODO: should we make the flags ignore case? rn -f age fails where -f Age does not
+		
 	#Execute query on a comparison of questions
-	elif args.compare:
+	elif args.second:
 		#description
 		db.execute(
 			"""SELECT a.description AS q1, b.description AS q2
@@ -131,16 +140,25 @@ try:
 				INNER JOIN
 					(SELECT description FROM columns WHERE name=%s) AS b
 				ON a.name=%s;""",
-			(args.compare[2], args.compare[0]))
+			(args.second[0], args.first[0]))
 		descriptions = db.fetchone()
 		desc = "Breakdown of Students' Answers to\n'"+shortDescription(descriptions[1])+\
-		"'\nwho also Answered\n'"+shortDescription(descriptions[0])+\
-		"'\nwith '"+args.compare[1]+"'"
+		"'\nwho also Answered\n'"+shortDescription(descriptions[0]) 
+
+		#if single answer
+		if args.answer:
+			desc = desc+"'\nwith '"+args.answer[0]+"'"
+			query2 = "='%s';" % args.answer[0]
+
+		#if range
+		elif args.arange:
+			desc = desc+"'\nin range '"+args.arange[0]+" to "+args.arange[1]+"'"
+			query2 = " between '"+args.arange[0]+"' and '"+args.arange[1]+"';"
 
 		#results
 
-		query = "SELECT %s FROM results WHERE %s" % (args.compare[2], args.compare[0])
-		db.execute(query+"=%s;", (args.compare[1],))#don't ask about the comma. just. don't.
+		query = "SELECT %s FROM results WHERE %s" % (args.second[0], args.first[0])
+		db.execute(query+query2)
 
 	#fetch and format results
 	fetchedData = db.fetchall()
@@ -195,7 +213,7 @@ if args.explode:
 fig1, ax1 = plt.subplots()
 
 #Sets the chart title, if only because it looks weird without one
-fig1.suptitle(desc, fontsize=(24 if args.single else 20), fontweight='bold')
+fig1.suptitle(desc, fontsize=(20 if args.second else 24), fontweight='bold')
 
 #This sets up the plot, and returns `<?>, <text based on data>, <text generated automatically>`
 patches, texts, autotexts = ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.2f%%', shadow=True, startangle=45)
