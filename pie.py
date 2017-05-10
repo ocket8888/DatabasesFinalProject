@@ -5,22 +5,24 @@
 ###				ARGUMENT PARSING				###
 ###################################################
 import argparse as ap
+from argparse import RawTextHelpFormatter
 
 #Just describes the program and how to use it.
 parser = ap.ArgumentParser(\
-	description="Compares student lives from a Slavic survey via pie chart. Also outputs line-separated numerical data to stdout in the format: "
+	description="Compares student lives from a Slavic survey via pie chart. Also outputs line-separated numerical data to stdout in the format:\n"
 		"<answer> <number of this answer> <percent of total constituted by this answer>",\
-	                   usage="%(prog)s [-l | -h | -f <question> [ -s <question> & -a <answer> | -r <lower_bound> <upper_bound>] [-x]",\
-	epilog="Each entry output using `-l` or `--list` ends with 'keyword=\"<keyword>\"', which specifies the keyword to use when this entry is the"
-		"<question> or <other question> argument. <answer> arguments should be given exactly; use quotes to enclose strings that contain spaces."
-		"Same thing applies to the way-too-many keywords that have spaces in them due to poor life choices by the data maintainers."
-		"Exit codes:"
-			"0 indicates normal exit,"
-			"1 indicates manual command-line argument validation failed, and a message will be printed saying why,"
-			"2 is reserved for errors encountered by the `argparse.ArgumentParser.parse_args()` function, so errors should be verbose,"
-			"3 indicates that a library is missing, and will display a message advising which library is missing and possible ways to install it,"
-			"4 means that the directory is missing something (probably `list.psql`),"
-			"5 is used for any and all database connection-related errors")
+	                   usage="%(prog)s [-l | -h | -f <first question> [ -s <second question> & -a <answer> | -r <lower bound> <upper bound>] [-x]",\
+	epilog="Each entry output using `-l` or `--list` ends with 'keyword=\"<keyword>\"', which specifies the keyword to use when this entry is the\n"
+		"<first question> or <second question> argument. <answer> arguments should be given exactly; use quotes to enclose strings that contain spaces.\n"
+		"Same thing applies to the way-too-many keywords that have spaces in them due to poor life choices by the data maintainers.\n"
+		"\nExit codes:\n"
+			"0 indicates normal exit,\n"
+			"1 indicates manual command-line argument validation failed, and a message will be printed saying why,\n"
+			"2 is reserved for errors encountered by the `argparse.ArgumentParser.parse_args()` function, so errors should be verbose,\n"
+			"3 indicates that a library is missing, and will display a message advising which library is missing and possible ways to install it,\n"
+			"4 means that the directory is missing something (probably `list.psql`),\n"
+			   "5 is used for any and all database connection-related errors\n",\
+                           formatter_class=RawTextHelpFormatter)
 
 #These lines each add a command-line argument, as well as handle some meta stuff for them.
 parser.add_argument('-l', '--list', action='store_true', help="Lists the available questions and the possible respective answer ranges, and exit.")
@@ -28,8 +30,8 @@ parser.add_argument('-f', '--first', nargs=1, type=str, help="First question to 
 parser.add_argument('-s', '--second', nargs=1, type=str, help="Second question to graph (optional). Requires a value or range specified for first question")
 parser.add_argument('-a', '--answer', nargs=1, type=str, help="Singular answer to first question, for comparison with values of second")
 parser.add_argument('-r', '--arange', nargs=2, type=str, help="Two values to use as range of accepted answers for first question")
-parser.add_argument("-x", "--explode", nargs=1, type=str, help="Select an answer to explode. This will explode the pie slice (all assuming that at least one person gave this answer).\
-	Must be a valid answer to <question> (if using -s) or <other question> (if using -c).")
+parser.add_argument("-x", "--explode", nargs=1, type=str, help="Select an answer to explode. This will explode the pie slice (all assuming that at least one person gave this answer).\n\
+	Must be a valid answer to <first question> (if not using -s) or <second question> (if using -s).")
 
 args = parser.parse_args() #runs the parser on `ARGV`
 
