@@ -124,7 +124,6 @@ try:
 
 	#Execute query on a comparison of questions
 	elif args.compare:
-		print(args.compare)
 		#description
 		db.execute(
 			"""SELECT a.description AS q1, b.description AS q2
@@ -145,7 +144,6 @@ try:
 	#fetch and format results
 	fetchedData = db.fetchall()
 	dataToAnalyze = [result[0] if result[0] else "Didn't Answer" for result in fetchedData]
-	print(dataToAnalyze)
 
 except Exception as e:
 	print("Something wicked happened when trying to read from the database", file=stderr)
